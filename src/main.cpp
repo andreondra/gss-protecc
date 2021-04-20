@@ -20,13 +20,17 @@ void setup()
 {
   //Startup beep.
   tone(notePort, noteBeep_1, 50);
+  RGB('B');
 
   Serial.begin(9600);
+
+  #ifdef __GSS_DEBUG__
   Serial.println("Starting system");
   Serial.println("Golas Protecc System v0.5");
-  
   Serial.println("Setting up:");
   Serial.print("Ports ");
+  #endif
+
   pinMode(RGB_R, OUTPUT);
   pinMode(RGB_G, OUTPUT);
   pinMode(RGB_B, OUTPUT);
@@ -34,27 +38,39 @@ void setup()
   pinMode(buttonRight, INPUT_PULLUP);
   pinMode(pirPin, INPUT);
   pinMode(sirenPin, OUTPUT);
-  Serial.print("OK");
 
-  Serial.print("SPI bus ");
-  SPI.begin();
+  #ifdef __GSS_DEBUG__
   Serial.println("OK");
+  Serial.print("SPI bus ");
+  #endif
 
+  SPI.begin();
+
+  #ifdef __GSS_DEBUG__
+  Serial.println("OK");
   Serial.print("MFRC522 ");
+  #endif
+
   mfrc522.PCD_Init();
   mfrc522.PCD_SetAntennaGain(mfrc522.RxGain_max);
   mfrc522.PCD_DumpVersionToSerial();
-  Serial.print("OK");
 
+  #ifdef __GSS_DEBUG__
+  Serial.println("OK");
   Serial.print("LCD ");
+  #endif
+
   lcd.init();
   //Creating custom chars.
   lcd.createChar(0, letter_g);
   lcd.createChar(1, letter_s);
   lcd.backlight();
   lcd.clear();
+
+  #ifdef __GSS_DEBUG__
   Serial.println("OK");
   Serial.println("Init finished.");
+  #endif
 
   //GSS logo
   writeMyChar(5, 0, 42);
@@ -66,94 +82,69 @@ void setup()
   lcd.print(" Golas  Systems ");
 
   //Startup tune.
+  /*
   for (noteNumber = 0; noteNumber < 7; noteNumber++)
   {
     tone(notePort, noteSong_1[noteNumber], 50);
     delay(250);
   }
-  delay(500);
+  */
 
   lcd.clear();
   lcd.print("Protecc System");
   lcd.setCursor(6, 1);
   lcd.print("v0.5");
-  delay(3000);
-  
-  lcd.clear();
-  Serial.println("");
-  Serial.println("Starting setup...");
-  lcd.print("Starting setup..");
   delay(1000);
+  
+  #ifdef __GSS_DEBUG__
+  Serial.println("Checking if master card defined...");
+  #endif
 
-  lcd.clear();
-  Serial.println("Checking if masterCard defined...");
-  lcd.print("Mastercard?");
-
-  delay(500);
-
-  if (checkMaster() != 1)
+  if (!checkMaster())
   {
-    Serial.println("masterCard not defined!");
-    Serial.println(F("Starting defineMaster()!"));
-    Serial.println(F(""));
+    #ifdef __GSS_DEBUG__
+    Serial.println("Master card not defined, starting setup...");
+    #endif
 
-    lcd.setCursor(2, 1);
+    lcd.clear();
+    lcd.print("Mastercard");
+    lcd.setCursor(0, 1);
     lcd.print("not defined!");
     delay(1000);
-    lcd.setCursor(2, 1);
-    lcd.print("            ");
-    lcd.setCursor(0, 1);
-    lcd.print("scan new master");
 
-    if (defineMaster() == 1)
+    lcd.clear();
+    lcd.print(">Master setup");
+    lcd.setCursor(0, 1);
+    lcd.print("*SCAN NEW CARD*");
+
+    do
     {
-      Serial.println("masterCard defining successful!");
-      lcd.setCursor(0, 1);
-      lcd.print("                ");
-      lcd.setCursor(1, 1);
-      lcd.print("master defined!");
-    }
-    else
+      successRead = getID();
+      RGB_blink('B', 1, 100);
+    } while (!successRead);
+    
+    RGB('G');
+
+    for (uint8_t i = 0; i < 4; i++)
     {
-      Serial.println("ERROR: masterCard defining not successful!");
-      error(0);
+      Serial.print(readCard[i]);
+      EEPROM.write(EE_CARDS + i, readCard[i]);
     }
+    EEPROM.write(EE_SLOTS, EEPROM.read(EE_SLOTS) | 0x80);
 
   }
   else
   {
-    RGB_blink('G', 3, 100);
+    #ifdef __GSS_DEBUG__
     Serial.println("masterCard defined!");
-    lcd.setCursor(7, 1);
-    lcd.print("OK!");
-    RGB('W');
+    #endif
   }
-
-  delay(1000);
-  lcd.clear();
-
-  Serial.println("");
-  Serial.print("masterCard's UID: ");
-  for (uint8_t i = 0; i < 4; i++)
-  {
-    masterCard[i] = EEPROM.read(ea_MASTERCARDID + i);
-    Serial.print(masterCard[i], HEX);
-  }
-
-  Serial.println("");
-  Serial.println("");
+  
+  #ifdef __GSS_DEBUG__
   Serial.println("Startup completed.");
+  #endif
 
-  Serial.println("");
-
-  lcd.print("Startup complete");
-
-  RGB_blink('G', 3, 100);
-  RGB('W');
-
-  delay(1000);
   lcd.clear();
-
   setupScreen = true;
 }
 
@@ -161,10 +152,13 @@ void setup()
 
 void loop()
 {
-  checkArmed();
-  RGB('W');
+  uint8_t armed = checkArmed();
+  if(armed == AR_ARMED)
+    RGB('R');
+  else
+    RGB('G');
 
-  state_global_t state_global = armed ? STG_ARMED : STG_UNARMED;
+  state_global_t state_global = (armed == AR_ARMED) ? STG_ARMED : STG_UNARMED;
 
   while(1){
 
@@ -196,6 +190,18 @@ void loop()
         break;
       case STG_MENU_ARMDELAY:
         state_global = screen_menu_armDelay();
+        break;
+      case STG_MENU_DISARMDELAY:
+        state_global = screen_menu_disarmDelay();
+        break;
+      case STG_MENU_FACTORYDEF:
+        state_global = screen_menu_factoryDef();
+        break;
+      case STG_MENU_CAPACITY:
+        state_global = screen_menu_capacity();
+        break;
+      case STG_MENU_ABOUT:
+        state_global = screen_menu_about();
         break;
       default:
         break;

@@ -26,16 +26,14 @@
 // MASTERCARD || ISARMED || ARMDELAY || DISARMDELAY
 // SLOT || SLOT || SLOT || SLOT
 // 
-#define EE_MASTERCARD 0
+//#define EE_RES0 0 
 #define EE_ISARMED 1
 #define EE_ARMDELAY 2
 #define EE_DISARMDELAY 3 
 #define EE_SLOTS 4 //5,6,7
-//8,9 RESERVED
-#define ea_ISFREE 4 //UNUSED
+//#define EE_RES8 0 
+//#define EE_RES9 0 
 #define EE_CARDS 10
-#define ea_MASTERCARDID 10 // UNUSED
-#define ea_CARDID 14 //UNUSED
 
 //NOT NEEDED
 #define ea_IDSWITHMASTER 5 //max id count in EEPROM + MASTER CARD ID
@@ -54,8 +52,27 @@
 // Card types.
 #define CARD_ALL 0
 #define CARD_MASTER 1
-#define CARD_USER 2
 // Card capacity.
-#define CARD_COUNT 32 //(without mastercard, dependent on EE_SLOTS count)
-
+#define CARD_COUNT 32 //(with mastercard, dependent on EE_SLOTS count)
+// =================================================
+// Scan status
+#define SCAN_NOTHING 0
+#define SCAN_MATCH 1
+#define SCAN_NOTMATCH 2
+// =================================================
+// Add status
+#define ADD_NOTHING 0
+#define ADD_SUCCESS 1
+#define ADD_FAIL_DUPLICATE 2
+#define ADD_FAIL_MEMERR 3
+#define ADD_FAIL_MEMFULL 4
+// =================================================
+// Rem status
+#define REM_NOTHING 0
+#define REM_SUCCESS 1
+#define REM_FAIL_NOTFOUND 2
+#define REM_FAIL_MEMFAIL 3
+// =================================================
+// Toggle values
+#define TGL_DELAY_SIZE 6
 #endif //__GSS__CONSTANTS__

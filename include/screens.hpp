@@ -15,6 +15,7 @@ state_global_t screen_menu_remCard();
 state_global_t screen_menu_armDelay();
 state_global_t screen_menu_disarmDelay();
 state_global_t screen_menu_factoryDef();
+state_global_t screen_menu_capacity();
 state_global_t screen_menu_about();
 
 #endif //__GSS__SCREENS__

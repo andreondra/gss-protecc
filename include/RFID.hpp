@@ -1,12 +1,14 @@
 #ifndef __GSS__RFID__
 #define __GSS__RFID__
 
+#include <Arduino.h>
+
 bool getID();
-int getCard(char cardType);
-int scanCard(char cardType);
-int checkMaster();
-int defineMaster();
-int addCard();
-void remCard();
+uint8_t scanCard(uint8_t cardType);
+bool compareCardToSlot(uint8_t *card, uint16_t slot);
+bool checkMaster();
+uint8_t addCard();
+uint8_t remCard();
+size_t getFreeSlots();
 
 #endif //__GSS__RFID__

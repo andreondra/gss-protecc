@@ -1,4 +1,5 @@
 #include <EEPROM.h>
+#include <avr/wdt.h>
 #include "utilities.hpp"
 #include "types.hpp"
 #include "constants.hpp"
@@ -8,51 +9,10 @@ armed_t checkArmed()
 {
     switch(EEPROM.read(EE_ISARMED))
     {
-        case 0: return AR_ARMED;
-        case 1: return AR_UNARMED;
+        case 0: return AR_UNARMED;
+        case 1: return AR_ARMED;
         default:return AR_ERROR;
     }
-}
-
-void error(int errorNumber)
-{
-  lcd.clear();
-  RGB_off();
-
-  switch (errorNumber)
-  {
-    case 0:
-      {
-        tone(notePort, noteBeep_2, 1000);
-        Serial.println("Critical error! Reboot needed!");
-        lcd.print("Critical error!");
-        lcd.setCursor(0, 1);
-        lcd.print("Please reboot!");
-        endlessLoopLed();
-      }
-    case 1:
-      {
-        tone(notePort, noteBeep_2, 1000);
-        Serial.println("RC522 PCD Failure!");
-        lcd.setCursor(2, 0);
-        lcd.print("RC522 error!");
-        lcd.setCursor(1, 1);
-        lcd.print("system  halted");
-        endlessLoopLed();
-      }
-    case 2:
-      {
-        tone(notePort, noteBeep_2, 1000);
-        Serial.println("Armed state unknown - EEPROM read error! Set to unarmed!");
-        lcd.setCursor(2, 0);
-        lcd.print("Armed error!");
-        lcd.setCursor(1, 1);
-        lcd.print("system  halted");
-        
-        EEPROM.write(EE_ISARMED, 0);
-        endlessLoopLed();
-      }
-  }
 }
 
 void writeMyChar(int posColumn, int posRow, int charNum)
@@ -138,4 +98,10 @@ void RGB_blink(char RGB_blinkColor, uint8_t RGB_blinkCount, uint8_t RGB_blinkDel
     RGB_off();
     delay(RGB_blinkDelay);
   }
+}
+
+void reboot(){
+
+  wdt_enable(WDTO_15MS);
+  while(1) {}
 }

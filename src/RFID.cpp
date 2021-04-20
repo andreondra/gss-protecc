@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "RFID.hpp"
 #include "globals.hpp"
 #include "constants.hpp"
@@ -5,25 +6,16 @@
 #include "EEPROM.h"
 
 /**
- * Scan ID and save to readCard.
+ * Attempt a (nonblocking) scan of RFID card and save to readCard.
  * @returns true on success, otherwise false
 */
 bool getID()
 {
-  if (!mfrc522.PICC_IsNewCardPresent())
-  {
-    return 0;
-  }
-
-  if (!mfrc522.PICC_ReadCardSerial())
-  {
-    return 0;
-  }
+  if (!mfrc522.PICC_IsNewCardPresent()) return 0;
+  if (!mfrc522.PICC_ReadCardSerial()) return 0;
 
   tone(notePort, noteBeep_3, 50);
   
-  RGB('W');
-
   Serial.print(F("Scanned UID: "));
   for (uint8_t i = 0; i < 4; i++)
   {
@@ -34,76 +26,26 @@ bool getID()
   Serial.println("");
   mfrc522.PICC_HaltA();
 
-  RGB_off();
-
   return 1;
 }
 
-int getCard(char cardType)
-{
-  match = false;
-  
-  if(getID())
-  {
-    if(cardType == 'A')
-    {
-      for(int j = 0;j < ea_IDSWITHMASTER;j++)
-      {
-        for(int i = 0;i < 4;i++)
-        {
-          if(readCard[i] != EEPROM.read(ea_MASTERCARDID + (4 * j) + i))
-          {
-            break;
-          }
-          
-          if(i == 3)
-          {
-            match = true;
-          }
-        }
-             
-        if(match)
-        {
-          return 1;
-        }
-        else
-        {
-          continue;
-        }
-      }
-      return 0; 
-    }  
-    else if(cardType == 'M')
-    {
-      match = true;
-      
-      for(int i = 0;i < 4;i++)
-      {
-        if(readCard[i] != EEPROM.read(ea_MASTERCARDID + i))
-        {
-          match = false;
-        }
-      }
-      if(match)
-      {
-        return 1;
-      }
-      else
-      {
-        return 0;
-      }
-    }
-    else
-    {
-      error(3);
-    }
+//Compare a card with given slot in EEPROM.
+bool compareCardToSlot(uint8_t *card, uint16_t slot){
+
+  for(uint8_t i = 0; i < 4; i++){
+
+    Serial.print(EEPROM.read(EE_CARDS + (slot * 4) + i) , HEX);
+    if(EEPROM.read(EE_CARDS + (slot * 4) + i) != card[i]) return false;
   }
-  else
-  {
-    return 3;
-  }
+
+  return true;
 }
 
+/**
+ * Attempt a nonblocking scan of RFID card, check if card of given type in db.
+ * @param cardType CARD_ALL or CARD_MASTER
+ * @return SCAN_MATCH on match, SCAN_MATCH on not match, SCAN_NOTHING if nothing to scan.
+*/
 uint8_t scanCard(uint8_t cardType)
 {
 
@@ -112,229 +54,151 @@ uint8_t scanCard(uint8_t cardType)
     switch(cardType){
 
       case CARD_ALL:
-        break;
-    }
-  }
-
-  return 0;
-
-  match = false;
-  
-  do
-  {
-    successRead = getID();
-    RGB_blink('B', 1, 100);
-  } while (!successRead);
-
-  if(cardType == 'A')
-  {
-    for(uint8_t j = 0;j < ea_IDSWITHMASTER;j++)
-    {
-      for(uint8_t i = 0;i < 4;i++)
-      {
-        if(readCard[i] != EEPROM.read(ea_MASTERCARDID + (4 * j) + i))
-        {
-          break;
-        }
         
-        if(i == 3)
-        {
-          match = true;
+        for(uint16_t i = 0; i < CARD_COUNT; i++){
+          
+          if((EEPROM.read(EE_SLOTS + (i / 8)) << i % 8) & 0x80){
+            Serial.println("Found slot");
+            if(compareCardToSlot(readCard, i) == true) return SCAN_MATCH;
+          }
+        }
+        return SCAN_NOTMATCH;
+      
+      case CARD_MASTER:
+        if(compareCardToSlot(readCard, 0))
+          return SCAN_MATCH;
+        else
+          return SCAN_NOTMATCH;
+      
+      default:
+        break;
+    }
+  }
+
+  return SCAN_NOTHING;
+}
+
+/**
+ * Check if mastercard is defined.
+ * @return true if defined, false otherwise.
+*/
+bool checkMaster() {
+  return (EEPROM.read(EE_SLOTS) & 0x80) == 0x80;
+}
+
+/**
+ * Add a card to database (EEPROM).
+ * @return ADD_SUCCESS on success, ADD_FAIL[_MEMFULL|_MEMFAIL|_DUPLICATE] on failure, ADD_NOTHING when nothing scanned.
+*/
+uint8_t addCard(){
+
+  if(getID()){
+
+    //Checking if not already defined.
+    bool match;
+    for(uint16_t i = 0; i < CARD_COUNT; i++){
+
+      //Checking if record is present at slot.
+      if(((EEPROM.read(EE_SLOTS + i / 8) << i % 8) & 0x80)){
+        
+        match = true;
+        for(uint8_t j = 0; j < 4; j++){
+
+          if(EEPROM.read(EE_CARDS + (i * 4) + j) != readCard[j]){
+            match = false;
+            break;
+          }            
+        }
+
+        if(match) return ADD_FAIL_DUPLICATE;      
+      }
+    }
+
+    //Skipping master => i = 1
+    //Searching for free slot.
+    for(uint16_t i = 1; i < CARD_COUNT; i++){
+      
+      //Checking if slot is free.
+      if(((EEPROM.read(i / 8) << i % 8) & 0x80) == 0){
+
+        EEPROM.write(EE_SLOTS + i / 8, EEPROM.read(EE_SLOTS + i / 8) | (0x80 >> i % 8));
+        Serial.println(EEPROM.read(EE_SLOTS + i / 8), HEX);
+        //Writing to first free slot.
+        for(uint8_t j = 0; j < 4; j++){
+          EEPROM.write(EE_CARDS + (i * 4) + j, readCard[j]);
+        }
+
+
+        //Checking if the write was successful.
+        for(uint8_t j = 0; j < 4; j++){
+
+          if(EEPROM.read(EE_CARDS + (i * 4) + j) != readCard[j])
+            return ADD_FAIL_MEMERR;
+        }
+
+        return ADD_SUCCESS;
+      }
+    }
+
+    //No free slot.
+    return ADD_FAIL_MEMFULL;
+  }
+
+  //Nothing to scan.
+  return ADD_NOTHING;
+}
+
+/**
+ * Remove a card from database (EEPROM).
+ * @return REM_SUCCESS on success, REM_FAIL_NOTFOUND, REM_FAIL_MEMFAIL, REM_NOTHING when nothing scanned.
+*/
+uint8_t remCard(){
+
+  if(getID()){
+
+    //Searching for card, skipping master.
+    bool match;
+    for(uint16_t i = 1; i < CARD_COUNT; i++){
+
+      //Checking if record is present at slot.
+      if(((EEPROM.read(EE_SLOTS + i / 8) << i % 8) & 0x80)){
+        
+        match = true;
+        for(uint8_t j = 0; j < 4; j++){
+
+          if(EEPROM.read(EE_CARDS + (i * 4) + j) != readCard[j]){
+            match = false;
+            break;
+          }            
+        }
+
+        if(match){
+
+          uint8_t prevState = EEPROM.read(EE_SLOTS + i / 8);
+          EEPROM.write(EE_SLOTS + i / 8, prevState & ~(0x80 >> i % 8));
+
+          if(EEPROM.read(EE_SLOTS + i / 8) == (prevState & ~(0x80 >> i % 8)))
+            return REM_SUCCESS;
+          else 
+            return REM_FAIL_MEMFAIL;
         }
       }
-           
-      if(match)
-      {
-        return 1;
-      }
-      else
-      {
-        continue;
-      }
     }
-    return 0; 
-  }  
-  else if(cardType == 'M')
-  {
-    match = true;
-    
-    for(uint8_t i = 0;i < 4;i++)
-    {
-      if(readCard[i] != EEPROM.read(ea_MASTERCARDID + i))
-      {
-        match = false;
-      }
-    }
-    if(match)
-    {
-      return 1;
-    }
-    else
-    {
-      return 0;
-    }
+
+    return REM_FAIL_NOTFOUND;
   }
-  else
-  {
-    error(3);
-    return 0;
-  }
+
+  return REM_NOTHING;
 }
 
-int checkMaster()
-{
-  if (EEPROM.read(EE_MASTERCARD) == 1)
-    return 1;
-  else
-    return 0;
+size_t getFreeSlots(){
+
+  size_t count = 0;
+  for(size_t i = 0; i < CARD_COUNT; i++){
+
+    if(((EEPROM.read(EE_SLOTS + i / 8) << i % 8) & 0x80) == 0)
+      count++;
+  }
+
+  return count;
 }
-
-int defineMaster()
-{
-  do
-  {
-    successRead = getID();
-    RGB_blink('P', 1, 100);
-  } while (!successRead);
-  
-  RGB('W');
-
-  for (uint8_t i = 0; i < 4; i++)
-  {
-    EEPROM.write(ea_MASTERCARDID + i, readCard[i]);
-  }
-  EEPROM.write(EE_MASTERCARD, 1);
-
-  return 1;
-}
-
-int addCard()
-{
-  do
-  {
-    successRead = getID();
-    RGB_blink('P', 1, 100);
-  }while (!successRead);
-
-  for(uint8_t i = 0;i < ea_ISFREECOUNT;i++)
-  {
-    if(EEPROM.read(ea_ISFREE + i) == 0)
-    {
-      freeSlot = i;
-      break;
-    }
-    else if((EEPROM.read(ea_ISFREE + i) != 0) && (i == (ea_ISFREECOUNT - 1))) 
-    {
-      freeSlot = 69;
-      break;
-    }
-    else
-    {
-      continue;
-    }
-    
-  }
-
-  if(freeSlot != 69)
-  {
-    EEPROM.write((ea_ISFREE + freeSlot), 1);
-
-    for(uint8_t i = 0;i < 4;i++)
-    {
-      EEPROM.write((ea_CARDID + (4 * freeSlot) + i), readCard[i]);
-    }
-
-    return 1;
-  }
-  else
-  {
-    return 0;
-  }
-}
-
-void remCard()
-{
-  remSelection = 0;
-  
-  while(1)
-  {
-    switch(remSelection)
-    {
-      case 0:
-      {
-        delay(250);
-        lcd.clear();
-        lcd.print("*REM: MAIN     *");
-        lcd.setCursor(0, 1);
-        lcd.print("<EXIT>    <NEXT>");
-
-        do
-        {
-          if(!digitalRead(buttonLeft))
-          {
-            tone(notePort, noteBeep_6, 50);
-            return;
-          }
-          if(!digitalRead(buttonRight))
-          {
-            tone(notePort, noteBeep_6, 50);
-            remSelection = 1;
-            break;
-          }
-        }while(1);
-  
-        break;
-      }
-      case 1:
-      {
-        delay(250);
-        lcd.clear();
-        lcd.print("*REM: ALL CARDS*");
-        lcd.setCursor(0, 1);
-        lcd.print("<REM>     <NEXT>"); 
-                
-        do
-        {
-          if(!digitalRead(buttonLeft))
-          {
-            tone(notePort, noteBeep_6, 50);
-
-            lcd.setCursor(0, 1);
-            lcd.print("      WAIT      ");
-            RGB('W');
-
-            for(uint8_t i = 0;i < ea_ISFREECOUNT;i++)
-            {
-              EEPROM.update((ea_ISFREE + i), 0);
-            }
-
-            for(uint8_t i = 0;i < ea_IDS;i++)
-            {
-              for(uint8_t j = 0;j < 4;j++)
-              {
-                EEPROM.update((ea_CARDID + (4 * i) + j), 0);
-              }
-            }
-
-            lcd.setCursor(0, 1);
-            lcd.print("       OK       ");
-            tone(notePort, noteBeep_5, 500);
-            RGB_blink('G', 5, 200);
-
-            break;
-          }
-          
-          if(!digitalRead(buttonRight))
-          {
-            tone(notePort, noteBeep_6, 50);
-            remSelection = 0;
-            break;
-          }
-        }while(1);
-  
-        break;
-      }
-    }
-  }
-}
-
