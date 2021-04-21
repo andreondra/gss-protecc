@@ -1,5 +1,7 @@
 # GSS Protecc
 
+GSS Protecc je projekt, který vznikl během studia na FIT ČVUT jako semestrální práce v předmětu BI-ARD.
+
 ## Specifikace zadání
 *GSS Protecc*
 
@@ -75,3 +77,6 @@ Pro reprezentaci stavů automatu jsem zvolil `enum`, aby byla kompilátorem auto
 Rozhodl jsem se pro využití alternativy k oficiálnímu Arduino IDE, tedy Platformio IDE ve formě rozšíření pro Visual Studio Code. Tato alternativa nabízí pohodlnější správu knihoven, modularizaci projektu a svou povahou i profesionálnější editor.
 
 Pro velice jednoduché verzování v rané fázi jsem využil OneDrive, pro další fáze projektu plánuji využít git.
+
+## Dokumentace, manuál a závěr
+Lze nalézt ve složce dokumentace.

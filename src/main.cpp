@@ -19,45 +19,48 @@
 void setup()
 {
   //Startup beep.
-  tone(notePort, noteBeep_1, 50);
+  tone(notePort, NOTE_START, 50);
   RGB('B');
 
   Serial.begin(9600);
 
   #ifdef __GSS_DEBUG__
-  Serial.println("Starting system");
-  Serial.println("Golas Protecc System v0.5");
-  Serial.println("Setting up:");
-  Serial.print("Ports ");
+  Serial.println(F("Starting system"));
+  Serial.println(F("Golas Protecc System v0.5"));
+  Serial.println(F("Setting up:"));
+  Serial.print(F("Ports "));
   #endif
 
-  pinMode(RGB_R, OUTPUT);
-  pinMode(RGB_G, OUTPUT);
-  pinMode(RGB_B, OUTPUT);
-  pinMode(buttonLeft, INPUT_PULLUP);
-  pinMode(buttonRight, INPUT_PULLUP);
-  pinMode(pirPin, INPUT);
-  pinMode(sirenPin, OUTPUT);
+  pinMode(PIN_RGB_R, OUTPUT);
+  pinMode(PIN_RGB_G, OUTPUT);
+  pinMode(PIN_RGB_B, OUTPUT);
+  pinMode(PIN_BTN_L, INPUT_PULLUP);
+  pinMode(PIN_BTN_R, INPUT_PULLUP);
+  pinMode(PIN_PIR, INPUT);
+  pinMode(PIN_SIREN, OUTPUT);
 
   #ifdef __GSS_DEBUG__
-  Serial.println("OK");
-  Serial.print("SPI bus ");
+  Serial.println(F("OK"));
+  Serial.print(F("SPI bus "));
   #endif
 
   SPI.begin();
 
   #ifdef __GSS_DEBUG__
-  Serial.println("OK");
-  Serial.print("MFRC522 ");
+  Serial.println(F("OK"));
+  Serial.print(F("MFRC522 "));
   #endif
 
+  //MFRC522 init.
   mfrc522.PCD_Init();
   mfrc522.PCD_SetAntennaGain(mfrc522.RxGain_max);
+  #ifdef __GSS_DEBUG__
   mfrc522.PCD_DumpVersionToSerial();
+  #endif
 
   #ifdef __GSS_DEBUG__
-  Serial.println("OK");
-  Serial.print("LCD ");
+  Serial.println(F("OK"));
+  Serial.print(F("LCD "));
   #endif
 
   lcd.init();
@@ -68,8 +71,8 @@ void setup()
   lcd.clear();
 
   #ifdef __GSS_DEBUG__
-  Serial.println("OK");
-  Serial.println("Init finished.");
+  Serial.println(F("OK"));
+  Serial.println(F("Init finished."));
   #endif
 
   //GSS logo
@@ -79,44 +82,44 @@ void setup()
   writeMyChar(8, 0, 1);
   writeMyChar(9, 0, 42);
   lcd.setCursor(0, 1);
-  lcd.print(" Golas  Systems ");
+  lcd.print(F(" Golas  Systems "));
 
   //Startup tune.
-  /*
-  for (noteNumber = 0; noteNumber < 7; noteNumber++)
+  for (uint8_t noteNumber = 0; noteNumber < 7; noteNumber++)
   {
     tone(notePort, noteSong_1[noteNumber], 50);
     delay(250);
   }
-  */
 
   lcd.clear();
-  lcd.print("Protecc System");
+  lcd.print(F(" Protecc System "));
   lcd.setCursor(6, 1);
-  lcd.print("v0.5");
+  lcd.print(F("v0.5"));
   delay(1000);
   
   #ifdef __GSS_DEBUG__
-  Serial.println("Checking if master card defined...");
+  Serial.println(F("Checking if master card defined..."));
   #endif
 
+  //Master card def.
   if (!checkMaster())
   {
     #ifdef __GSS_DEBUG__
-    Serial.println("Master card not defined, starting setup...");
+    Serial.println(F("Master card not defined, starting setup..."));
     #endif
 
     lcd.clear();
-    lcd.print("Mastercard");
+    lcd.print(F("Mastercard"));
     lcd.setCursor(0, 1);
-    lcd.print("not defined!");
+    lcd.print(F("not defined!"));
     delay(1000);
 
     lcd.clear();
-    lcd.print(">Master setup");
+    lcd.print(F(">Master setup"));
     lcd.setCursor(0, 1);
-    lcd.print("*SCAN NEW CARD*");
+    lcd.print(F("*SCAN NEW CARD*"));
 
+    bool successRead;
     do
     {
       successRead = getID();
@@ -136,19 +139,17 @@ void setup()
   else
   {
     #ifdef __GSS_DEBUG__
-    Serial.println("masterCard defined!");
+    Serial.println(F("Master card defined!"));
     #endif
   }
   
   #ifdef __GSS_DEBUG__
-  Serial.println("Startup completed.");
+  Serial.println(F("Startup completed."));
   #endif
 
   lcd.clear();
   setupScreen = true;
 }
-
-
 
 void loop()
 {
@@ -162,7 +163,7 @@ void loop()
 
   while(1){
 
-    if(digitalRead(buttonLeft) && digitalRead(buttonRight))
+    if(digitalRead(PIN_BTN_L) && digitalRead(PIN_BTN_R))
       buttonLifted = true;
 
     switch(state_global){
@@ -187,6 +188,12 @@ void loop()
         break;
       case STG_MENU_REMCARD:
         state_global = screen_menu_remCard();
+        break;
+      case STG_MENU_LISTCARD:
+        state_global = screen_menu_listCard();
+        break;
+      case STG_MENU_GETID:
+        state_global = screen_menu_getID();
         break;
       case STG_MENU_ARMDELAY:
         state_global = screen_menu_armDelay();

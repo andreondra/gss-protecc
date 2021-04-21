@@ -9,25 +9,25 @@ state_global_t screen_unarmed(){
 
     if(setupScreen){
 
+        RGB('G');
         lcd.clear();
         lcd.setCursor(1, 0);
-        lcd.print("** UNARMED **");
+        lcd.print(F("** UNARMED **"));
         lcd.setCursor(0, 1);
-        lcd.print("<MENU>     <ARM>");
-        RGB('G');
+        lcd.print(F("<MENU>     <ARM>"));
 
         setupScreen = false;
     } else if(buttonLifted) {
 
-        if(!digitalRead(buttonLeft))
+        if(!digitalRead(PIN_BTN_L))
         {
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
 
             buttonLifted = false;
             setupScreen = true;
             return STG_MENU_AUTH;
-        } else if(!digitalRead(buttonRight)){
-            tone(notePort, noteBeep_6, 50);
+        } else if(!digitalRead(PIN_BTN_R)){
+            tone(notePort, NOTE_CLICK, 50);
             buttonLifted = false;
             setupScreen = true;
             return STG_ARM;
@@ -42,16 +42,17 @@ state_global_t screen_unarmed(){
 state_global_t screen_arm()
 {
     if(setupScreen){
+        RGB('B');
         lcd.clear();
-        lcd.print("*  SCAN  CARD  *");
+        lcd.print(F("*  SCAN  CARD  *"));
         lcd.setCursor(0, 1);
-        lcd.print("<ABORT>  <ABORT>");
+        lcd.print(F("<ABORT>  <ABORT>"));
         setupScreen = false;
 
     } else if(buttonLifted) {
 
-        if(!digitalRead(buttonLeft) || !digitalRead(buttonRight)){
-            tone(notePort, noteBeep_6, 50);
+        if(!digitalRead(PIN_BTN_L) || !digitalRead(PIN_BTN_R)){
+            tone(notePort, NOTE_CLICK, 50);
             buttonLifted = false;
             setupScreen = true;
             return STG_UNARMED;
@@ -63,24 +64,24 @@ state_global_t screen_arm()
 
             EEPROM.write(EE_ISARMED, 1);
 
-            lcd.print(" ACCESS GRANTED ");
-            tone(notePort, noteBeep_5, 500);
+            lcd.print(F(" ACCESS GRANTED "));
+            tone(notePort, NOTE_ACDN, 500);
             RGB_blink('G', 5, 200);
 
             lcd.clear();
             
-            lcd.print("ARM IN: ");
+            lcd.print(F("ARM IN: "));
             lcd.print(armDelay);
-            lcd.print(" s");
+            lcd.print(F(" s"));
 
             for(;0 < armDelay;armDelay--){
                 
                 lcd.setCursor(8, 0);
-                lcd.print("       ");
+                lcd.print(F("       "));
                 lcd.setCursor(8, 0);
                 lcd.print(armDelay);
 
-                tone(notePort, noteBeep_4);
+                tone(notePort, NOTE_DELAY);
                 RGB_blink('R', 1, 250);
                 noTone(notePort);
                 delay(500);
@@ -92,10 +93,11 @@ state_global_t screen_arm()
         }
         else if (scanStatus == SCAN_NOTMATCH)
         {
-            lcd.print(" ACCESS  DENIED ");
-            tone(notePort, noteBeep_5, 50);
+            lcd.setCursor(0, 1);
+            lcd.print(F(" ACCESS  DENIED "));
+            tone(notePort, NOTE_ACDN, 50);
             delay(250);
-            tone(notePort, noteBeep_5, 50);
+            tone(notePort, NOTE_ACDN, 50);
             RGB_blink('R', 5, 200);
 
             setupScreen = true;
@@ -108,149 +110,58 @@ state_global_t screen_arm()
 
 state_global_t screen_armed(){
 
+
+    uint8_t scanStatus;
+    static unsigned long disarm_millis;
+    static uint8_t disarm_delay;
+
     if(setupScreen){
 
         switch(state_arm){
 
             case STM_TITLE:
+                RGB('R');
                 lcd.clear();
-                lcd.print("**   ARMED   **");
+                lcd.print(F("**    ARMED   **"));
                 lcd.setCursor(0, 1);
-                lcd.print("*  SCAN CARD  *");
+                lcd.print(F("*  SCAN  CARD  *"));
                 break;
             
             case STM_ALERT:
+                RGB('R');
+                disarm_millis = millis();
+                disarm_delay = EEPROM.read(EE_DISARMDELAY);
                 lcd.clear();
-                lcd.print("*SCAN NEW CARD*");
+                lcd.print(F("ALARM IN: "));
+                lcd.print(disarm_delay);
+                lcd.print(F(" s"));
                 lcd.setCursor(0, 1);
-                lcd.print("<ABORT>  <ABORT>");
+                lcd.print(F("*  SCAN  CARD  *"));
                 break;
+            
+            case STM_ALARM:
+                digitalWrite(PIN_SIREN, HIGH);
+                RGB('R');
+                lcd.clear();
+                lcd.print(F("**    ALARM   **"));
+                lcd.setCursor(0, 1);
+                lcd.print(F("*  SCAN  CARD  *"));
+                break;
+
         }
 
         setupScreen = false;
+    
     } else {
 
-        if(digitalRead(pirPin) == HIGH){
+        scanStatus = scanCard(CARD_ALL);
 
+        if(scanStatus == SCAN_MATCH){
 
-        }
-
-        RGB_blink('B', 1, 200);
-        if(digitalRead(pirPin) == HIGH)
-        {
-            lcd.clear();
-            lcd.print("     ALERT!     ");
-            lcd.setCursor(0, 1);
-            lcd.print("Alarm in ");
-            lcd.setCursor(12,1);
-            lcd.print("sec."); 
-
-            for(int k = alarmDelay;k > 0;k--)
-            {
-                RGB('R');
-                tone(notePort, noteBeep_4, 50);
-                RGB_off();
-
-                delay(500);
-                
-                if(scanCard(CARD_ALL) == 1)
-                {
-                    digitalWrite(sirenPin, LOW);
-                    
-                    EEPROM.write(EE_ISARMED, 0);
-                    lcd.clear();
-                    lcd.print("***    OK    ***");
-                    lcd.setCursor(0, 1);
-                    lcd.print(" alarm  aborted ");
-                    RGB_blink('G', 5, 200);
-                    
-                    RGB('G');
-                    delay(1000);
-                    RGB_off();
-                    
-                    setupScreen = true;
-                    return STG_UNARMED;
-                }
-
-                if(k < 10)
-                {
-                lcd.setCursor(9, 1);
-                lcd.print(" ");
-                lcd.setCursor(10, 1);
-                }
-                else
-                {
-                lcd.setCursor(9, 1);
-                }
-                
-                lcd.print(k);
-
-                RGB('R');
-                tone(notePort, noteBeep_4, 50);
-                RGB_off();
-    
-                delay(500);
-            
-                if(scanCard(CARD_ALL) == 1)
-                {
-                    digitalWrite(sirenPin, LOW);
-
-                    EEPROM.write(EE_ISARMED, 0);
-                    lcd.clear();
-                    lcd.print("***    OK    ***");
-                    lcd.setCursor(0, 1);
-                    lcd.print(" alarm  aborted ");
-                    RGB_blink('G', 5, 200);
-                    
-                    RGB('G');
-                    delay(1000);
-                    RGB_off();
-                    
-                    setupScreen = true;
-                    return STG_UNARMED;
-                }
-            }
-
-            RGB('R');
-            
-            lcd.clear();
-            lcd.print("*** WARNING! ***");
-            lcd.setCursor(0, 1);
-            lcd.print("INTRUDER  ALERT!");
-
-            digitalWrite(sirenPin, HIGH);
-
-            while(1)
-            {
-                if(scanCard(CARD_ALL) == 1)
-                {
-                    digitalWrite(sirenPin, LOW);
-                    
-                    EEPROM.write(EE_ISARMED, 0);
-                    lcd.clear();
-                    lcd.print("***    OK    ***");
-                    lcd.setCursor(0, 1);
-                    lcd.print(" alarm  aborted ");
-                    RGB_blink('G', 5, 200);
-                    
-                    RGB('G');
-                    delay(1000);
-                    RGB_off();
-            
-                    break;
-                }
-            }
-
-            return STG_ARMED;   
-        }
-
-        armMatch = scanCard(CARD_ALL);
-        if(armMatch == 1)
-        {
             EEPROM.write(EE_ISARMED, 0);
             lcd.setCursor(0, 1);
-            lcd.print(" ACCESS GRANTED ");
-            tone(notePort, noteBeep_5, 500);
+            lcd.print(F(" ACCESS GRANTED "));
+            tone(notePort, NOTE_ACDN, 500);
             RGB_blink('G', 5, 200);
             
             RGB('G');
@@ -258,25 +169,43 @@ state_global_t screen_armed(){
             RGB_off();
 
             setupScreen = true;
+            state_arm = STM_TITLE;
             return STG_UNARMED;
+
+        } else if(scanStatus == SCAN_NOTMATCH){
+
+            //Do nothing.
         }
-        else if(armMatch == 3)
-        {
-            return STG_ARMED;
+
+        if(state_arm == STM_TITLE){
+            
+            if(digitalRead(PIN_PIR) == HIGH){
+
+                setupScreen = true;
+                state_arm = STM_ALERT;
+                return STG_ARMED;
+            }
         }
-        else
-        {
-            lcd.setCursor(0, 1);
-            lcd.print(" ACCESS  DENIED ");
-            
-            tone(notePort, noteBeep_5, 50);
-            delay(250);
-            tone(notePort, noteBeep_5, 50);
-            
-            RGB_blink('R', 5, 200);
-            
-            lcd.setCursor(0, 1);
-            lcd.print("< SCAN    CARD >");
+
+        if(state_arm == STM_ALERT){
+
+            if(disarm_delay == 0){
+
+                setupScreen = true;
+                state_arm = STM_ALARM;
+                return STG_ARMED;
+            }
+            else if(millis() - disarm_millis > 1000){
+                
+                disarm_delay--;
+                disarm_millis = millis();
+
+                lcd.setCursor(10, 0);
+                lcd.print(F("     "));
+                lcd.setCursor(10, 0);
+                lcd.print(disarm_delay);
+                lcd.print(F(" s"));
+            }
         }
     }
 
@@ -287,8 +216,9 @@ state_global_t screen_menu_auth(){
 
     if(setupScreen){
 
+        RGB('B');
         lcd.clear();
-        lcd.print("** SCAN mCard **");
+        lcd.print(F("** SCAN mCard **"));
         lcd.setCursor(0, 1);
         setupScreen = false;
     } else {
@@ -296,8 +226,8 @@ state_global_t screen_menu_auth(){
         uint8_t scanStatus = scanCard(CARD_MASTER);
         if(scanStatus == SCAN_MATCH){
 
-            lcd.print(" ACCESS GRANTED ");
-            tone(notePort, noteBeep_5, 500);
+            lcd.print(F(" ACCESS GRANTED "));
+            tone(notePort, NOTE_ACDN, 500);
             RGB_blink('G', 5, 200);
 
             setupScreen = true;
@@ -306,10 +236,10 @@ state_global_t screen_menu_auth(){
         } else if(scanStatus == SCAN_NOTMATCH){
 
             lcd.setCursor(0, 1);
-            lcd.print(" ACCESS  DENIED ");
-            tone(notePort, noteBeep_5, 50);
+            lcd.print(F(" ACCESS  DENIED "));
+            tone(notePort, NOTE_ACDN, 50);
             delay(250);
-            tone(notePort, noteBeep_5, 50);
+            tone(notePort, NOTE_ACDN, 50);
             RGB_blink('R', 5, 200);
 
             setupScreen = true;
@@ -324,24 +254,25 @@ state_global_t screen_menu_main(){
 
     if(setupScreen){
 
+        RGB_off();
         lcd.clear();
-        lcd.print(">MAIN MENU     ");
+        lcd.print(F(">MAIN MENU     "));
         lcd.setCursor(0, 1);
-        lcd.print("<EXIT>    <NEXT>");
+        lcd.print(F("<EXIT>    <NEXT>"));
         setupScreen = false;
     } else if(buttonLifted) {
 
-        if(!digitalRead(buttonLeft))
+        if(!digitalRead(PIN_BTN_L))
         {
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
             
             buttonLifted = false;
             setupScreen = true;
             return STG_UNARMED;
         }
-        else if(!digitalRead(buttonRight))
+        else if(!digitalRead(PIN_BTN_R))
         {
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
             
             buttonLifted = false;
             setupScreen = true;
@@ -361,17 +292,19 @@ state_global_t screen_menu_addCard(){
         switch(menu_state_addCard){
 
             case STA_TITLE:
+                RGB_off();
                 lcd.clear();
-                lcd.print(">ADD CARD");
+                lcd.print(F(">ADD CARD"));
                 lcd.setCursor(0, 1);
-                lcd.print("<ADD>     <NEXT>");
+                lcd.print(F("<ADD>     <NEXT>"));
                 break;
             
             case STA_ADD:
+                RGB('B');
                 lcd.clear();
-                lcd.print("*SCAN NEW CARD*");
+                lcd.print(F("*SCAN NEW CARD*"));
                 lcd.setCursor(0, 1);
-                lcd.print("<ABORT>  <ABORT>");
+                lcd.print(F("<ABORT>  <ABORT>"));
                 break;
         }
 
@@ -382,18 +315,18 @@ state_global_t screen_menu_addCard(){
 
             case STA_TITLE:
 
-                if(!digitalRead(buttonLeft))
+                if(!digitalRead(PIN_BTN_L))
                 {
-                    tone(notePort, noteBeep_6, 50);
+                    tone(notePort, NOTE_CLICK, 50);
 
                     menu_state_addCard = STA_ADD;
                     buttonLifted = false;
                     setupScreen = true;
                     return STG_MENU_ADDCARD;
 
-                } else if(!digitalRead(buttonRight)) {
+                } else if(!digitalRead(PIN_BTN_R)) {
 
-                    tone(notePort, noteBeep_6, 50);
+                    tone(notePort, NOTE_CLICK, 50);
 
                     buttonLifted = false;
                     setupScreen = true;
@@ -403,9 +336,9 @@ state_global_t screen_menu_addCard(){
                 break;
             case STA_ADD:
         
-                if(!digitalRead(buttonLeft) || !digitalRead(buttonRight))
+                if(!digitalRead(PIN_BTN_L) || !digitalRead(PIN_BTN_R))
                 {
-                    tone(notePort, noteBeep_6, 50);
+                    tone(notePort, NOTE_CLICK, 50);
 
                     menu_state_addCard = STA_TITLE;
                     buttonLifted = false;
@@ -418,8 +351,8 @@ state_global_t screen_menu_addCard(){
                 if(addStatus == ADD_SUCCESS)
                 {
                     lcd.setCursor(0, 1);
-                    lcd.print("       OK       ");
-                    tone(notePort, noteBeep_5, 500);
+                    lcd.print(F("       OK       "));
+                    tone(notePort, NOTE_ACDN, 500);
                     RGB_blink('G', 5, 200);
 
                     buttonLifted = false;
@@ -436,18 +369,18 @@ state_global_t screen_menu_addCard(){
 
                     switch(addStatus){
                         case ADD_FAIL_MEMERR:
-                            lcd.print("ERROR: MEM FAIL");
+                            lcd.print(F("ERROR: MEM FAIL"));
                             break;
                         case ADD_FAIL_MEMFULL:
-                            lcd.print("ERROR: MEM FULL");
+                            lcd.print(F("ERROR: MEM FULL"));
                             break;
                         case ADD_FAIL_DUPLICATE:
-                        lcd.print("ERROR: DUPLICATE");
+                        lcd.print(F("ERROR: DUPLICATE"));
                             break;
                     }
-                    tone(notePort, noteBeep_5, 50);
+                    tone(notePort, NOTE_ACDN, 50);
                     delay(250);
-                    tone(notePort, noteBeep_5, 50);
+                    tone(notePort, NOTE_ACDN, 50);
                     RGB_blink('R', 5, 200);
 
                     buttonLifted = false;
@@ -471,17 +404,19 @@ state_global_t screen_menu_remCard(){
         switch(menu_state_remCard){
 
             case STR_TITLE:
+                RGB_off();
                 lcd.clear();
-                lcd.print(">REM CARD");
+                lcd.print(F(">REM CARD"));
                 lcd.setCursor(0, 1);
-                lcd.print("<SEL>     <NEXT>");
+                lcd.print(F("<SEL>     <NEXT>"));
                 break;
             
             case STR_SINGLE:
+                RGB('B');
                 lcd.clear();
-                lcd.print("*  SCAN CARD  *");
+                lcd.print(F("*  SCAN CARD  *"));
                 lcd.setCursor(0, 1);
-                lcd.print("<ABORT>  <ABORT>");
+                lcd.print(F("<ABORT>  <ABORT>"));
                 break;
         }
 
@@ -492,27 +427,27 @@ state_global_t screen_menu_remCard(){
         switch(menu_state_remCard){
 
             case STR_TITLE:
-                if(!digitalRead(buttonLeft)) {
+                if(!digitalRead(PIN_BTN_L)) {
                     
-                    tone(notePort, noteBeep_6, 50);
+                    tone(notePort, NOTE_CLICK, 50);
                     menu_state_remCard = STR_SINGLE;
                     buttonLifted = false;
                     setupScreen = true;
                     return STG_MENU_REMCARD;
                 }
-                else if(!digitalRead(buttonRight)) {
+                else if(!digitalRead(PIN_BTN_R)) {
                     
-                    tone(notePort, noteBeep_6, 50);
+                    tone(notePort, NOTE_CLICK, 50);
                     buttonLifted = false;
                     setupScreen = true;
-                    return STG_MENU_ARMDELAY;
+                    return STG_MENU_LISTCARD;
                 }
                 break;
             case STR_SINGLE:
 
-                if(!digitalRead(buttonLeft) || !digitalRead(buttonRight)){
+                if(!digitalRead(PIN_BTN_L) || !digitalRead(PIN_BTN_R)){
                     
-                    tone(notePort, noteBeep_6, 50);
+                    tone(notePort, NOTE_CLICK, 50);
                     menu_state_remCard = STR_TITLE;
                     buttonLifted = false;
                     setupScreen = true;
@@ -524,7 +459,7 @@ state_global_t screen_menu_remCard(){
                 {
                     lcd.setCursor(0, 1);
                     lcd.print("       OK       ");
-                    tone(notePort, noteBeep_5, 500);
+                    tone(notePort, NOTE_ACDN, 500);
                     RGB_blink('G', 5, 200);
 
                     buttonLifted = false;
@@ -542,15 +477,15 @@ state_global_t screen_menu_remCard(){
 
                     switch(remStatus){
                         case REM_FAIL_MEMFAIL:
-                            lcd.print("ERROR: MEM FAIL");
+                            lcd.print(F("ERROR: MEM FAIL"));
                             break;
                         case REM_FAIL_NOTFOUND:
-                            lcd.print("CARD  NOT  FOUND");
+                            lcd.print(F("CARD  NOT  FOUND"));
                             break;
                     }
-                    tone(notePort, noteBeep_5, 50);
+                    tone(notePort, NOTE_ACDN, 50);
                     delay(250);
-                    tone(notePort, noteBeep_5, 50);
+                    tone(notePort, NOTE_ACDN, 50);
                     RGB_blink('R', 5, 200);
 
                     buttonLifted = false;
@@ -566,22 +501,130 @@ state_global_t screen_menu_remCard(){
     return STG_MENU_REMCARD;
 }
 
-state_global_t screen_menu_armDelay(){
+state_global_t screen_menu_listCard(){
+
+    static size_t cardPos;
+    static bool init;
 
     if(setupScreen){
 
+        cardPos = 0;
+        init = true;
+        RGB_off();
         lcd.clear();
-        lcd.print(">ARM DELAY: ");
-        lcd.print(EEPROM.read(EE_ARMDELAY));
+        lcd.print(F(">CARD LIST"));
         lcd.setCursor(0, 1);
-        lcd.print("<CHANGE>  <NEXT>");  
+        lcd.print(F("<LIST>    <NEXT>"));  
         setupScreen = false;
 
     } else if(buttonLifted) {
 
-        if(!digitalRead(buttonLeft)) {
+        if(!digitalRead(PIN_BTN_L)) {
             
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
+
+            if(init)
+                init = false;
+            else
+                cardPos++;
+
+            for(; cardPos < CARD_COUNT; cardPos++){
+
+                if(((EEPROM.read(EE_SLOTS + cardPos / 8) << cardPos % 8) & 0x80) == 0x80){
+                    break;
+                }
+            }
+
+            if(cardPos == CARD_COUNT)
+                cardPos = 0;
+
+            lcd.setCursor(0, 0);
+            lcd.print(F("                "));
+            lcd.setCursor(0, 0);
+            lcd.print(F("#"));
+            lcd.print(cardPos);
+            lcd.print(F(":"));
+
+            for(uint8_t i = 0; i < 4; i++){
+
+                lcd.print(F(" "));
+                lcd.print(String(EEPROM.read(EE_CARDS + cardPos + i), HEX));
+            }
+
+            buttonLifted = false;
+            return STG_MENU_LISTCARD;
+        }
+        else if(!digitalRead(PIN_BTN_R)) {
+            
+            tone(notePort, NOTE_CLICK, 50);
+
+            buttonLifted = false;
+            setupScreen = true;
+            return STG_MENU_GETID;
+        }
+    }
+
+    return STG_MENU_LISTCARD;
+}
+
+state_global_t screen_menu_getID(){
+
+    if(setupScreen){
+
+        RGB('B');
+        lcd.clear();
+        lcd.print(F(">GET CARD ID"));
+        lcd.setCursor(0, 1);
+        lcd.print(F("SCAN CARD <NEXT>"));  
+        setupScreen = false;
+
+    } else if(buttonLifted) {
+
+        if(getID()) {
+
+            lcd.setCursor(0, 0);
+            lcd.print(F("                "));
+            lcd.setCursor(0, 0);
+            lcd.print(F("ID:"));
+
+            for(uint8_t i = 0; i < 4; i++){
+
+                lcd.print(F(" "));
+                lcd.print(String(readCard[i], HEX));
+            }
+
+            return STG_MENU_GETID;
+        }
+        else if(!digitalRead(PIN_BTN_R)) {
+            
+            tone(notePort, NOTE_CLICK, 50);
+
+            buttonLifted = false;
+            setupScreen = true;
+            return STG_MENU_ARMDELAY;
+        }
+    }
+
+    return STG_MENU_GETID;
+}
+
+state_global_t screen_menu_armDelay(){
+
+    if(setupScreen){
+
+        RGB_off();
+        lcd.clear();
+        lcd.print(F(">ARM DELAY: "));
+        lcd.print(EEPROM.read(EE_ARMDELAY));
+        lcd.setCursor(0, 1);
+        lcd.print(F("<CHANGE>  <NEXT>"));  
+        setupScreen = false;
+
+    } else if(buttonLifted) {
+
+        if(!digitalRead(PIN_BTN_L)) {
+            
+            tone(notePort, NOTE_CLICK, 50);
             
             size_t newIndex = shiftThrough<uint8_t>(valarray_delay, TGL_DELAY_SIZE, EEPROM.read(EE_ARMDELAY));
             EEPROM.write(EE_ARMDELAY, valarray_delay[newIndex]);
@@ -590,9 +633,9 @@ state_global_t screen_menu_armDelay(){
             setupScreen = true;
             return STG_MENU_ARMDELAY;
         }
-        else if(!digitalRead(buttonRight)) {
+        else if(!digitalRead(PIN_BTN_R)) {
             
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
             buttonLifted = false;
             setupScreen = true;
             return STG_MENU_DISARMDELAY;
@@ -606,18 +649,19 @@ state_global_t screen_menu_disarmDelay(){
 
     if(setupScreen){
 
+        RGB_off();
         lcd.clear();
-        lcd.print(">DARM DELAY: ");
+        lcd.print(F(">DARM DELAY: "));
         lcd.print(EEPROM.read(EE_DISARMDELAY));
         lcd.setCursor(0, 1);
-        lcd.print("<CHANGE>  <NEXT>");  
+        lcd.print(F("<CHANGE>  <NEXT>"));  
         setupScreen = false;
 
     } else if(buttonLifted) {
 
-        if(!digitalRead(buttonLeft)) {
+        if(!digitalRead(PIN_BTN_L)) {
             
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
             
             size_t newIndex = shiftThrough<uint8_t>(valarray_delay, TGL_DELAY_SIZE, EEPROM.read(EE_DISARMDELAY));
             EEPROM.write(EE_DISARMDELAY, valarray_delay[newIndex]);
@@ -626,9 +670,9 @@ state_global_t screen_menu_disarmDelay(){
             setupScreen = true;
             return STG_MENU_DISARMDELAY;
         }
-        else if(!digitalRead(buttonRight)) {
+        else if(!digitalRead(PIN_BTN_R)) {
             
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
             buttonLifted = false;
             setupScreen = true;
             return STG_MENU_FACTORYDEF;
@@ -642,20 +686,21 @@ state_global_t screen_menu_factoryDef(){
     
     if(setupScreen){
 
+        RGB_off();
         lcd.clear();
-        lcd.print(">FACTORY RESET ");
+        lcd.print(F(">FACTORY RESET "));
         lcd.setCursor(0, 1);
-        lcd.print("<RESET>   <NEXT>");  
+        lcd.print(F("<RESET>   <NEXT>"));  
         setupScreen = false;
 
     } else if(buttonLifted) {
 
-        if(!digitalRead(buttonLeft)) {
+        if(!digitalRead(PIN_BTN_L)) {
             
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
 
             lcd.clear();
-            lcd.print("WIPING...");
+            lcd.print(F("WIPING..."));
             RGB('R');
             
             EEPROM.write(EE_ISARMED, 0);
@@ -672,9 +717,9 @@ state_global_t screen_menu_factoryDef(){
             reboot();
             return STG_MENU_FACTORYDEF;
         }
-        else if(!digitalRead(buttonRight)) {
+        else if(!digitalRead(PIN_BTN_R)) {
             
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
             buttonLifted = false;
             setupScreen = true;
             return STG_MENU_CAPACITY;
@@ -688,22 +733,23 @@ state_global_t screen_menu_capacity(){
 
     if(setupScreen){
 
+        RGB_off();
         lcd.clear();
-        lcd.print(">MEM: ");
-        lcd.print("[");
+        lcd.print(F(">MEM: "));
+        lcd.print(F("["));
         lcd.print(CARD_COUNT - getFreeSlots());
-        lcd.print("/");
+        lcd.print(F("/"));
         lcd.print(CARD_COUNT);
-        lcd.print("]");
+        lcd.print(F("]"));
         lcd.setCursor(0, 1);
-        lcd.print("<    >    <NEXT>");  
+        lcd.print(F("<    >    <NEXT>"));  
         setupScreen = false;
 
     } else if(buttonLifted) {
 
-        if(!digitalRead(buttonRight)) {
+        if(!digitalRead(PIN_BTN_R)) {
             
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
             buttonLifted = false;
             setupScreen = true;
             return STG_MENU_ABOUT;
@@ -717,17 +763,18 @@ state_global_t screen_menu_about(){
 
     if(setupScreen){
 
+        RGB_off();
         lcd.clear();
-        lcd.print("GSS Protecc 0.5");
+        lcd.print(F("GSS Protecc 0.5"));
         lcd.setCursor(0, 1);
-        lcd.print("<    >    <NEXT>");  
+        lcd.print(F("<    >    <NEXT>"));  
         setupScreen = false;
 
     } else if(buttonLifted) {
 
-        if(!digitalRead(buttonRight)) {
+        if(!digitalRead(PIN_BTN_R)) {
             
-            tone(notePort, noteBeep_6, 50);
+            tone(notePort, NOTE_CLICK, 50);
             buttonLifted = false;
             setupScreen = true;
             return STG_MENU_MAIN;

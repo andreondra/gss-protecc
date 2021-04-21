@@ -5,47 +5,47 @@
 #include "utilities.hpp"
 #include "EEPROM.h"
 
-/**
- * Attempt a (nonblocking) scan of RFID card and save to readCard.
- * @returns true on success, otherwise false
-*/
 bool getID()
 {
   if (!mfrc522.PICC_IsNewCardPresent()) return 0;
   if (!mfrc522.PICC_ReadCardSerial()) return 0;
 
-  tone(notePort, noteBeep_3, 50);
+  tone(notePort, NOTE_SCANNED, 50);
   
+  #ifdef __GSS_DEBUG__
   Serial.print(F("Scanned UID: "));
+  #endif
   for (uint8_t i = 0; i < 4; i++)
   {
     readCard[i] = mfrc522.uid.uidByte[i];
+    #ifdef __GSS_DEBUG__
     Serial.print(readCard[i], HEX);
+    #endif
   }
 
+  #ifdef __GSS_DEBUG__
   Serial.println("");
+  #endif
+  
   mfrc522.PICC_HaltA();
 
   return 1;
 }
 
-//Compare a card with given slot in EEPROM.
+
 bool compareCardToSlot(uint8_t *card, uint16_t slot){
 
   for(uint8_t i = 0; i < 4; i++){
 
+    #ifdef __GSS_DEBUG__
     Serial.print(EEPROM.read(EE_CARDS + (slot * 4) + i) , HEX);
+    #endif
     if(EEPROM.read(EE_CARDS + (slot * 4) + i) != card[i]) return false;
   }
 
   return true;
 }
 
-/**
- * Attempt a nonblocking scan of RFID card, check if card of given type in db.
- * @param cardType CARD_ALL or CARD_MASTER
- * @return SCAN_MATCH on match, SCAN_MATCH on not match, SCAN_NOTHING if nothing to scan.
-*/
 uint8_t scanCard(uint8_t cardType)
 {
 
@@ -58,7 +58,9 @@ uint8_t scanCard(uint8_t cardType)
         for(uint16_t i = 0; i < CARD_COUNT; i++){
           
           if((EEPROM.read(EE_SLOTS + (i / 8)) << i % 8) & 0x80){
-            Serial.println("Found slot");
+            #ifdef __GSS_DEBUG__
+            Serial.println(F("Found slot"));
+            #endif
             if(compareCardToSlot(readCard, i) == true) return SCAN_MATCH;
           }
         }
@@ -78,18 +80,10 @@ uint8_t scanCard(uint8_t cardType)
   return SCAN_NOTHING;
 }
 
-/**
- * Check if mastercard is defined.
- * @return true if defined, false otherwise.
-*/
 bool checkMaster() {
   return (EEPROM.read(EE_SLOTS) & 0x80) == 0x80;
 }
 
-/**
- * Add a card to database (EEPROM).
- * @return ADD_SUCCESS on success, ADD_FAIL[_MEMFULL|_MEMFAIL|_DUPLICATE] on failure, ADD_NOTHING when nothing scanned.
-*/
 uint8_t addCard(){
 
   if(getID()){
@@ -119,10 +113,12 @@ uint8_t addCard(){
     for(uint16_t i = 1; i < CARD_COUNT; i++){
       
       //Checking if slot is free.
-      if(((EEPROM.read(i / 8) << i % 8) & 0x80) == 0){
+      if(((EEPROM.read(EE_SLOTS + i / 8) << i % 8) & 0x80) == 0){
 
         EEPROM.write(EE_SLOTS + i / 8, EEPROM.read(EE_SLOTS + i / 8) | (0x80 >> i % 8));
+        #ifdef __GSS_DEBUG__
         Serial.println(EEPROM.read(EE_SLOTS + i / 8), HEX);
+        #endif
         //Writing to first free slot.
         for(uint8_t j = 0; j < 4; j++){
           EEPROM.write(EE_CARDS + (i * 4) + j, readCard[j]);
@@ -148,10 +144,6 @@ uint8_t addCard(){
   return ADD_NOTHING;
 }
 
-/**
- * Remove a card from database (EEPROM).
- * @return REM_SUCCESS on success, REM_FAIL_NOTFOUND, REM_FAIL_MEMFAIL, REM_NOTHING when nothing scanned.
-*/
 uint8_t remCard(){
 
   if(getID()){

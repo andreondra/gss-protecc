@@ -21,22 +21,11 @@ void writeMyChar(int posColumn, int posRow, int charNum)
   lcd.write(charNum);
 }
 
-void endlessLoopLed()
-{
-  while (1)
-  {
-    RGB('R');
-    delay(1000);
-    RGB_off();
-    delay(1000);
-  }
-}
-
 void RGB_off()
 {
-  digitalWrite(RGB_R, LOW);
-  digitalWrite(RGB_G, LOW);
-  digitalWrite(RGB_B, LOW);
+  digitalWrite(PIN_RGB_R, LOW);
+  digitalWrite(PIN_RGB_G, LOW);
+  digitalWrite(PIN_RGB_B, LOW);
 }
 
 void RGB(char RGB_color)
@@ -47,42 +36,42 @@ void RGB(char RGB_color)
   {
     case 'R':
       {
-        digitalWrite(RGB_R, HIGH);
+        digitalWrite(PIN_RGB_R, HIGH);
         break;
       }
     case 'G':
       {
-        digitalWrite(RGB_G, HIGH);
+        digitalWrite(PIN_RGB_G, HIGH);
         break;
       }
     case 'B':
       {
-        digitalWrite(RGB_B, HIGH);
+        digitalWrite(PIN_RGB_B, HIGH);
         break;
       }
     case 'Y':
       {
-        digitalWrite(RGB_R, HIGH);
-        digitalWrite(RGB_G, HIGH);
+        digitalWrite(PIN_RGB_R, HIGH);
+        digitalWrite(PIN_RGB_G, HIGH);
         break;
       }
     case 'P':
       {
-        digitalWrite(RGB_R, HIGH);
-        digitalWrite(RGB_B, HIGH);
+        digitalWrite(PIN_RGB_R, HIGH);
+        digitalWrite(PIN_RGB_B, HIGH);
         break;
       }
     case 'C':
       {
-        digitalWrite(RGB_B, HIGH);
-        digitalWrite(RGB_G, HIGH);
+        digitalWrite(PIN_RGB_B, HIGH);
+        digitalWrite(PIN_RGB_G, HIGH);
         break;
       }
     case 'W':
       {
-        digitalWrite(RGB_R, HIGH);
-        digitalWrite(RGB_G, HIGH);
-        digitalWrite(RGB_B, HIGH);
+        digitalWrite(PIN_RGB_R, HIGH);
+        digitalWrite(PIN_RGB_G, HIGH);
+        digitalWrite(PIN_RGB_B, HIGH);
         break;
       }
   }
