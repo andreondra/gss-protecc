@@ -41,6 +41,7 @@ Zabezpečování:
 Při zjištění pohybu pomocí senzoru dojde ke spuštění odpočtu, během kterého lze odjistit bez spuštění sirény. Poté se siréna spustí.
 
 Naskenování karty: odbezpečení
+
 Naskenování jiné karty: návrat na titulní stránku
 
 Před detekcí pohybu:
@@ -57,6 +58,7 @@ Po detekci pohybu:
 Před vstupem do menu je nutné se autentizovat pomocí master karty.
 
 Naskenování master karty: vstup do menu
+
 Naskenování jiné karty: návrat na titulní stránku
 
 ![Autentizace před vstupem do menu](screen_auth.png)

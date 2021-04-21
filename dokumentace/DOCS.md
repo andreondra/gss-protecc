@@ -10,13 +10,17 @@
 - MFRC522,
 - generická 5V siréna.
 
+## Použité nestandardní knihovny
+- [LiquidCrystal_I2C](https://github.com/johnrickman/LiquidCrystal_I2C)
+- [MRFC522](https://github.com/miguelbalboa/rfid)
+
 ## Zapojení prototypu
 Následující schéma bylo vytvořeno v on-line CAD systému TinkerCAD.
 Výstupy MFRC522 jsou vyvedeny na breadboard vlevo:
 
 `SDA | SCK | MOSI | MISO | IRQ | GND | RST | 3.3V`
 
-Výstup IRQ není připojen.
+Výstup `IRQ` není připojen.
 
 Zapojení displeje je z důvodu absence I2C řadiče orientační a je v obrázku přeznačeno.
 Do GPIO 3 pak lze připojit vstupní signál libovolné 5V sirény.
