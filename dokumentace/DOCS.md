@@ -50,3 +50,6 @@ Některé obrazovky obsahují i podobrazovky, např. pro načítání karty. Sta
 Všechny pomocné funkce jsou neblokující, proto například pro načtení stavu je nutné je volat v cyklu. To však přináší tu výhodu, že lze provádět více činností.
 
 Podrobnější informace jsou obsaženy v hlavičkových souborech (shrnutí) a detaily implementace pak v implementačních souborech.
+
+## Ukládání záznamů
+Záznamy se ukládají do EEPROM. Mapa EEPROM lze vidět v constants.hpp. Do `EE_SLOTS` se zleva ukládají flagy, kde 1 = zabraná pozice, 0 = volná pozice. Do `EE_CARDS` pak postupně ID karet vždy po 4 bajtech.
